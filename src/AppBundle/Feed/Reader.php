@@ -3,6 +3,7 @@
 namespace AppBundle\Feed;
 
 use AppBundle\Entity\Merchant;
+use AppBundle\Entity\Offer;
 use Doctrine\ORM\EntityManagerInterface;
 
 /**
@@ -17,6 +18,26 @@ class Reader
      */
     private $em;
 
+    /**
+     * @var \AppBundle\Repository\ProductRepository
+     */
+    private $productRepository;
+
+    /**
+     * @var \AppBundle\Repository\OfferRepository
+     */
+    private $offerRepository;
+
+    /**
+     * @var Merchant
+     */
+    private $merchant;
+
+    /**
+     * @var int
+     */
+    private $count;
+
 
     /**
      * Constructor.
@@ -26,6 +47,9 @@ class Reader
     public function __construct(EntityManagerInterface $entityManager)
     {
         $this->em = $entityManager;
+
+        $this->offerRepository = $this->em->getRepository('AppBundle:Offer');
+        $this->productRepository = $this->em->getRepository('AppBundle:Product');
     }
 
     /**
@@ -37,26 +61,118 @@ class Reader
      */
     public function read(Merchant $merchant)
     {
-        // $count = 0;
+        $this->merchant = $merchant;
+        $this->count = 0;
 
-        // Lire le flux de données du marchand
+        $url = $merchant->getFeedUrl();
+        $format = strtolower(pathinfo($merchant->getFeedUrl(), PATHINFO_EXTENSION));
 
-        // Convertir les données JSON en tableau
+        switch ($format) {
+            case 'json':
+                $this->loadJsonFeed($url);
+                break;
 
-        // Pour chaque couple de données "code ean / prix"
+            case 'csv':
+                $this->loadCsvFeed($url);
+                break;
 
-            // Trouver le produit correspondant
+            case 'xml':
+                $this->loadXmlFeed($url);
+                break;
+        }
 
-                // Sinon passer à l'itération suivante
+        $this->em->flush();
 
-            // Trouver l'offre correspondant à ce produit et ce marchand
+        return $this->count;
+    }
 
-                // Sinon créer l'offre
+    /**
+     * Loads the JSON feed.
+     *
+     * @param string $url
+     */
+    private function loadJsonFeed($url)
+    {
+        $results = json_decode(file_get_contents($url), true);
 
-            // Mettre à jour le prix et la date de mise à jour de l'offre
+        foreach ($results as $data) {
+            $this->createOrUpdateOffer($data['ean_code'], $data['price']);
+        }
+    }
 
-            // Enregistrer l'offre et incrémenter le compteur d'offres
+    /**
+     * Loads the CSV feed.
+     *
+     * @param string $url
+     */
+    private function loadCsvFeed($url)
+    {
+        $handle = fopen($url, 'r');
 
-        // Renvoyer le nombre d'offres
+        while (false !== $data = fgetcsv($handle, null, ';')) {
+            $this->createOrUpdateOffer($data[0], $data[1]);
+        }
+
+        fclose($handle);
+    }
+
+    /**
+     * Loads the XML feed.
+     *
+     * @param string $url
+     */
+    private function loadXmlFeed($url)
+    {
+        $dom = new \DOMDocument();
+        $dom->load($url);
+
+        $offers = $dom->getElementsByTagName('offer');
+
+        /** @var \DomElement $offer */
+        foreach ($offers as $offer) {
+            $this->createOrUpdateOffer(
+                $offer->getAttribute('ean_code'),
+                $offer->getAttribute('price')
+            );
+        }
+    }
+
+    /**
+     * Creates or updates the offer regarding to the given ean code.
+     *
+     * @param string $eanCode
+     * @param string $price
+     *
+     * @return bool
+     */
+    private function createOrUpdateOffer($eanCode, $price)
+    {
+        $product = $this->productRepository->findOneBy(['eanCode' => $eanCode]);
+
+        if (null === $product) {
+            return false;
+        }
+
+        $offer = $this->offerRepository->findOneBy([
+            'merchant' => $this->merchant,
+            'product' => $product,
+        ]);
+
+        if (null === $offer) {
+            $offer = new Offer();
+            $offer
+                ->setProduct($product)
+                ->setMerchant($this->merchant);
+        }
+
+        $offer
+            ->setPrice($price)
+            ->setUpdatedAt(new \DateTime());
+
+        $this->em->persist($offer);
+
+        $this->count++;
+
+        return true;
     }
 }

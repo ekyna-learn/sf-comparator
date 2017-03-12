@@ -30,14 +30,23 @@ EOT
 
     protected function execute(InputInterface $input, OutputInterface $output)
     {
-        // Récupérer le service "Feed Reader"
+        $container = $this->getContainer();
 
-        // Récupérer le service "Doctrine Entity Manager"
+        $merchantCode = $input->getArgument('merchantCode');
 
-        // Trouver le marchand d'après le code passé en argument de la commande
+        $manager = $container->get('doctrine.orm.entity_manager');
+        $reader = $container->get('app.feed.reader');
 
-        // Utiliser le service "Feed Reader" pour récupérer les offres du flux du marchand
+        $merchant = $manager
+            ->getRepository('AppBundle:Merchant')
+            ->findOneBy(['code' => $merchantCode]);
 
-        // Afficher (dans le terminal) le nombre d'offres créées ou mises à jour.
+        if (!$merchant) {
+            throw new \Exception('Merchant not found.');
+        }
+
+        $count = $reader->read($merchant);
+
+        $output->writeln(sprintf('Fetched %s offer(s).', $count));
     }
 }
