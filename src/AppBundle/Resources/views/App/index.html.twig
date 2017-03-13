@@ -1,5 +1,27 @@
 {% extends 'AppBundle::base.html.twig' %}
 
 {% block body %}
+<div class="container">
+    <h1>Sf Comparator</h1>
 
+    <hr>
+
+    <h2>Articles disponibles :</h2>
+
+    <table class="table">
+        {% for product in products %}
+        <tr>
+            <td>
+                {{ product.designation }}
+            </td>
+            <td>
+                <a href="{{ path('app_product', {'productId': product.id}) }}"
+                    class="btn btn-sm btn-primary">
+                    Voir les offres
+                </a>
+            </td>
+        </tr>
+        {% endfor %}
+    </table>
+</div>
 {% endblock %}

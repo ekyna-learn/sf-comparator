@@ -1,0 +1,30 @@
+{% extends 'AppBundle::base.html.twig' %}
+
+{% block body %}
+<div class="container">
+    <h1>{{ product.designation }}</h1>
+
+    <hr>
+
+    <h2>Offres des sites marchands pour cet article :</h2>
+
+    <table class="table">
+        {% for offer in offers %}
+            <tr>
+                <td>
+                    {{ offer.merchant.name }}
+                </td>
+                <td>
+                    {{ offer.price|number_format(2, ',', '') }} €
+                </td>
+                <td>
+                    <a href="javascript: alert('Not yet implemented')"
+                       class="btn btn-sm btn-primary">
+                        Voir l'offre
+                    </a>
+                </td>
+            </tr>
+        {% endfor %}
+    </table>
+</div>
+{% endblock %}
